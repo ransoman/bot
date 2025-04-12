@@ -12,7 +12,7 @@ from telegram.ext import (
 )
 
 # Ganti token dengan token bot kamu
-BOT_TOKEN = "ISI_TOKEN_BOT_KAMU"
+BOT_TOKEN = "7953818033:AAHanu-auAM67GoJ6I6gBlBFlyI5wsGsnUI"
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
