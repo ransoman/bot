@@ -1,133 +1,141 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import yt_dlp
-import random
 import os
-from datetime import datetime
+import random
+import logging
 import aiohttp
+from telegram import Update, MessageEntity
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    CommandHandler,
+    MessageHandler,
+    filters
+)
 
-# --- KONFIGURASI ---
-BOT_TOKEN = '7953818033:AAHanu-auAM67GoJ6I6gBlBFlyI5wsGsnUI'
-os.makedirs("logs", exist_ok=True)
+# Ganti token dengan token bot kamu
+BOT_TOKEN = "ISI_TOKEN_BOT_KAMU"
 
-# --- FITUR 1: START ---
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Halo {update.effective_user.first_name}! Aku X-BOT 🤖 Siap bantu kamu!")
+    await update.message.reply_text(
+        "🚀 *X-BOT V1 AKTIF*\n\n"
+        "Ketik /help buat lihat fitur bot.",
+        parse_mode='Markdown'
+    )
 
-# --- FITUR 2: AUTO RESPONDER SAAT DISEBUT ---
-async def mention_responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text and context.bot.username.lower() in update.message.text.lower():
-        await update.message.reply_text(f"Ada apa, {update.effective_user.first_name}? Aku dipanggil~ 🤖")
+# /help
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📖 *FITUR X-BOT:*\n"
+        "/dadu — Lempar dadu 🎲\n"
+        "/suit — Main batu-gunting-kertas ✊✌️✋\n"
+        "/tebakangka — Tebak angka 1-10 🎯\n"
+        "/iptrace <ip> — Lacak lokasi IP 🌐\n"
+        "/yt <link> — Download video YouTube 🎥\n"
+        "\nBot juga auto-reply kalau kamu mention dia 🤖",
+        parse_mode='Markdown'
+    )
 
-# --- FITUR 3: MINI GAMES ---
-async def tebak_angka(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    angka = random.randint(1, 10)
-    await update.message.reply_text("🎯 Aku sudah pilih angka 1-10. Tebak!")
-    await update.message.reply_text(f"Jawaban: {angka} 😆")
+# /dadu
+async def dadu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    hasil = random.randint(1, 6)
+    await update.message.reply_text(f"🎲 Angka dadu: {hasil}")
 
+# /suit
 async def suit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pilihan = ["batu", "gunting", "kertas"]
-    bot = random.choice(pilihan)
-    await update.message.reply_text(f"Aku milih: {bot} ✊✌✋")
+    pilihan = random.choice(["✊ Batu", "✌️ Gunting", "✋ Kertas"])
+    await update.message.reply_text(f"Aku pilih: {pilihan}")
 
-async def lempar_dadu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    angka = random.randint(1, 6)
-    await update.message.reply_text(f"🎲 Dadu menunjukkan: {angka}")
+# /tebakangka
+async def tebakangka(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    angka = random.randint(1, 10)
+    await update.message.reply_text("🎯 Coba tebak angka dari 1 - 10!")
 
-# --- FITUR 4: DARK MODE / HACKING STYLE ---
-async def darkmode(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    teks = """💻 Accessing Hidden Network...
-🔍 Scanning Ports...
-🧠 Intelligence Gathering Complete.
+    def check(m: Update):
+        return m.from_user.id == update.message.from_user.id
 
-👁‍🗨 Target: Anonymous
-🕶 Status: Active Surveillance"""
-    await update.message.reply_text(teks)
+    try:
+        response = await context.bot.wait_for('message', timeout=15)
+        if str(angka) == response.text.strip():
+            await update.message.reply_text("🎉 Benar!")
+        else:
+            await update.message.reply_text(f"❌ Salah! Jawabannya: {angka}")
+    except:
+        await update.message.reply_text("⌛ Terlalu lama... coba lagi!")
 
-# --- FITUR 5: DOWNLOAD YOUTUBE ---
-async def download_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Gunakan format: /yt <link_youtube>")
+# /iptrace
+async def iptrace(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) != 1:
+        await update.message.reply_text("❌ Contoh: /iptrace 8.8.8.8")
         return
 
-    url = context.args[0]
-    await update.message.reply_text("🔄 Sedang mendownload...")
-
-    ydl_opts = {
-        'format': 'best',
-        'outtmpl': 'video.mp4'
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-
-    with open('video.mp4', 'rb') as video:
-        await update.message.reply_video(video=video)
-
-# --- FITUR 6: AUTO SAVE MEDIA ---
-async def save_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user.username or update.effective_user.first_name
-    date = datetime.now().strftime("%Y%m%d-%H%M%S")
-
-    if update.message.photo:
-        photo = update.message.photo[-1]
-        file = await photo.get_file()
-        path = f"logs/{user}-{date}.jpg"
-        await file.download_to_drive(path)
-        await update.message.reply_text("🖼 Foto disimpan.")
-
-    elif update.message.video:
-        video = update.message.video
-        file = await video.get_file()
-        path = f"logs/{user}-{date}.mp4"
-        await file.download_to_drive(path)
-        await update.message.reply_text("📹 Video disimpan.")
-
-# --- FITUR 7: PING API EKSTERNAL ---
-async def cek_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = "https://api.ipify.org?format=json"
+    ip = context.args[0]
+    url = f"http://ip-api.com/json/{ip}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             data = await resp.json()
-            await update.message.reply_text(f"🔔 IP Publik: {data['ip']}")
-
-# --- FITUR 8: IP TRACE ---
-async def iptrace(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Gunakan format: /iptrace <IP atau domain>")
-        return
-    ip = context.args[0]
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"http://ip-api.com/json/{ip}") as resp:
-            data = await resp.json()
-            if data['status'] == 'success':
+            if data["status"] == "success":
                 msg = (
-                    f"🌐 IP: {data['query']}\n"
-                    f"🏙️ Kota: {data['city']}\n"
-                    f"🌍 Negara: {data['country']}\n"
-                    f"🛰️ ISP: {data['isp']}\n"
-                    f"📡 Koordinat: {data['lat']}, {data['lon']}\n"
-                    f"🧭 Zona Waktu: {data['timezone']}"
+                    f"🌍 *IP Trace Result:*\n"
+                    f"IP: `{ip}`\n"
+                    f"Negara: {data['country']} - {data['countryCode']}\n"
+                    f"Kota: {data['city']}\n"
+                    f"Isp: {data['isp']}\n"
+                    f"Koordinat: {data['lat']}, {data['lon']}"
                 )
             else:
-                msg = "❌ IP tidak ditemukan atau tidak valid."
-            await update.message.reply_text(msg)
+                msg = "❌ IP tidak valid atau gagal dilacak."
+            await update.message.reply_text(msg, parse_mode='Markdown')
 
-# --- RUN APP ---
+# /yt (placeholder)
+async def yt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("📥 Fitur YouTube belum diaktifkan.")
+
+# Auto-save media
+async def save_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user.username or update.message.from_user.first_name
+    if update.message.photo:
+        file = await update.message.photo[-1].get_file()
+        filename = f"media/{user}_photo.jpg"
+        await file.download_to_drive(filename)
+        await update.message.reply_text("🖼️ Foto disimpan.")
+    elif update.message.video:
+        file = await update.message.video.get_file()
+        filename = f"media/{user}_video.mp4"
+        await file.download_to_drive(filename)
+        await update.message.reply_text("🎞️ Video disimpan.")
+
+# Auto-reply kalau disebut
+async def mention_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    bot_username = (await context.bot.get_me()).username.lower()
+    if any(ent.type == MessageEntity.MENTION and bot_username in update.message.text.lower()
+           for ent in update.message.entities or []):
+        await update.message.reply_text("🤖 Aku dipanggil? Aku di sini, siap bantu!")
+
+# === MAIN SETUP ===
 if __name__ == '__main__':
+    if not os.path.exists("media"):
+        os.makedirs("media")
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # Command handler
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("tebakangka", tebak_angka))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("dadu", dadu))
     app.add_handler(CommandHandler("suit", suit))
-    app.add_handler(CommandHandler("dadu", lempar_dadu))
-    app.add_handler(CommandHandler("darkmode", darkmode))
-    app.add_handler(CommandHandler("yt", download_youtube))
-    app.add_handler(CommandHandler("pingapi", cek_status))
+    app.add_handler(CommandHandler("tebakangka", tebakangka))
     app.add_handler(CommandHandler("iptrace", iptrace))
+    app.add_handler(CommandHandler("yt", yt))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mention_responder))
+    # Auto media save
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, save_media))
 
-    print("✅ X-BOT V1 AKTIF...")
+    # Auto responder if mentioned
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), mention_reply))
+
+    print("✅ X-BOT V1 is running...")
     app.run_polling()
